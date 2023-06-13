@@ -1,0 +1,42 @@
+﻿services:
+  saga:
+    cpus: 1.5
+    build:
+      context: .
+      dockerfile: SagaVsConsumers/Dockerfile
+    environment:
+      UseSaga: true
+      DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: false
+      ConnectionStrings__Database: "Server=tcp:db,1433;Initial Catalog=sagavsconsumers;Persist Security Info=False;User ID=sa;Password=P@ssw0rd!;TrustServerCertificate=True;Connection Timeout=30"
+    ports:
+      - 8081:80
+  
+  consumers:
+    cpus: 1.5
+    build:
+      context: .
+      dockerfile: SagaVsConsumers/Dockerfile
+    environment:
+      UseSaga: false
+      DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE: false
+      ConnectionStrings__Database: "Server=tcp:db,1433;Initial Catalog=sagavsconsumers;Persist Security Info=False;User ID=sa;Password=P@ssw0rd!;TrustServerCertificate=True;Connection Timeout=30"
+    ports:
+      - 8082:80
+  
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: P@ssw0rd!
+    ports:
+      - 1433:1433
+    healthcheck:
+      test: [ "CMD", "/opt/mssql-tools/bin/sqlcmd", "-U", "sa", "-P", "P@ssw0rd!", "-d", "master", "-Q", "select 1" ]
+      interval: 1s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
