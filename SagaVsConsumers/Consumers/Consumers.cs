@@ -1,7 +1,7 @@
-﻿using MassTransit;
+﻿using System.Data;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using SagaVsConsumers.Persistence;
-using SagaVsConsumers.Sagas;
 
 namespace SagaVsConsumers.Consumers;
 
@@ -9,6 +9,8 @@ public record StarterConsumer(FlowContext Db) : IConsumer<FlowRequested>
 {
     public async Task Consume(ConsumeContext<FlowRequested> context)
     {
+        await using var transaction = await Db.Database.BeginTransactionAsync(IsolationLevel.Snapshot);
+        
         var state = await Db.Set<FlowState>()
             .SingleOrDefaultAsync(s => s.CorrelationId == context.Message.CorrelationId);
 
@@ -25,6 +27,8 @@ public record StarterConsumer(FlowContext Db) : IConsumer<FlowRequested>
         Db.Add(state);
 
         await Db.SaveChangesAsync();
+
+        await transaction.CommitAsync();
         
         await context.Publish(new FlowStarted
         {
@@ -37,6 +41,8 @@ public record FinisherConsumer(FlowContext Db) : IConsumer<FlowStarted>
 {
     public async Task Consume(ConsumeContext<FlowStarted> context)
     {
+        await using var transaction = await Db.Database.BeginTransactionAsync(IsolationLevel.Snapshot);
+        
         var state = await Db.Set<FlowState>()
             .SingleOrDefaultAsync(s => s.CorrelationId == context.Message.CorrelationId);
         
@@ -45,6 +51,8 @@ public record FinisherConsumer(FlowContext Db) : IConsumer<FlowStarted>
         state.State = "Completed";
         state.CompletionDate = DateTimeOffset.UtcNow;
 
+        await transaction.CommitAsync();
+        
         await Db.SaveChangesAsync();
     }
 }

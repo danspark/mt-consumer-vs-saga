@@ -1,3 +1,4 @@
+using System.Data;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using SagaVsConsumers.Persistence;
@@ -12,10 +13,15 @@ builder.Services.AddMassTransit(mt =>
 {
     if (useSaga)
     {
-        mt.AddSagaStateMachine<FlowSaga, FlowState>()
+        mt.AddSagaStateMachine<FlowSaga, FlowState>(saga =>
+            {
+                // could be used if we need to process a message type differently than others (concurrency, retry, etc)
+                // saga.Message<FlowRequested>(conf => { conf.UseCircuitBreaker(); });
+            })
             .EntityFrameworkRepository(ef =>
             {
                 ef.ConcurrencyMode = ConcurrencyMode.Optimistic;
+                ef.IsolationLevel = IsolationLevel.Snapshot;
 
                 ef.AddDbContext<FlowContext, FlowContext>((p, b) =>
                 {
